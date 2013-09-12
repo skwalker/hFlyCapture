@@ -13,6 +13,7 @@ Build-Type:         Simple
 Synopsis:           Haskell Bindings to FlyCapture2 SDK from Point Grey
 Cabal-Version:      >=1.8
 Extra-Source-Files: README.md
+                  , tests/*.hs
 Description:
   Description to come.
 
@@ -36,3 +37,8 @@ Library
     System.FlyCap
     System.FlyCap.FlyCapBase
   Ghc-Options: -Wall
+
+--Executable aviToAvi
+  --Hs-Source-Dirs: tests
+  --Main-Is: aviToAvi.hs
+  --Build-Depends: flycap, base, CV

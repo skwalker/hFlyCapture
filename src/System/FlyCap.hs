@@ -60,8 +60,10 @@ import qualified Codec.Picture.Types as JPTypes
 
 type Context = FlyCapBase.Context
 
+-- TODO: import CV, make type synonyms to clarify that Capture refers
+-- to AVI files and Context refers to individual cameras
 data CaptureHandle = AVISetHandle [Capture]
-                     | CameraSetHandle [Context]
+                   | CameraSetHandle [Context]
 
 data FCImage = FCImage
                Int -- ^ column count (width)
@@ -85,11 +87,8 @@ hCreateC =
 
 hGetCamIndex :: Context -> Int -> IO PGRGuid
 hGetCamIndex c i =
-  alloca $ \ptr -> do
-    (throwErrnoIf_ (/=0) ("get camera index")
-     (fc2GetCameraFromIndex c (fromIntegral i) ptr))
-    guid <- peek ptr
-    return (guid)
+  alloca $ \ptr -> (throwErrnoIf_ (/=0) ("get camera index")
+                    (fc2GetCameraFromIndex c (fromIntegral i) ptr)) >> peek ptr
     
 hGetCamSerial :: Context -> Int -> IO PGRGuid
 hGetCamSerial c i = 
@@ -168,20 +167,22 @@ makeAVI mayb fr name c = do
   closeAVI ac
   destroyAVI ac
 
---retImage :: (Maybe Context) -> (Maybe (Ptr Capture)) -> IO CImage
---retImage mayCont mayCap = do
-  --case mayCont of Just context -> hRetBuff context
-    --              Nothing -> case mayCap of Just pcapture -> cvLoadImage pcapture
-      --                                      Nothing -> print ("error, cannot retrieve images")
+retImage :: (Maybe Context) -> (Maybe (Ptr Capture)) -> IO CImage
+retImage mayCont mayCap = do
+  case mayCont of Just context -> hRetBuff context
+                  Nothing -> case mayCap of Just pcapture -> cvLoadImage pcapture
+                                            Nothing -> print ("error, cannot retrieve images")
                                      
-cvLoadImage :: Capture -> IO () --IO CImage
+cvLoadImage :: Capture -> IO CImage
 cvLoadImage capture = do
    (Just imageRGB) <- getFrame capture 
    let imageD32 = rgbToGray imageRGB
    let (CArray (nx0, ny0) (nx1, ny1) numElem values) = copyImageToFCArray imageD32
-   print =<< withForeignPtr values
-  -- showImage (fromIntegral w) image
-   return ()
+   pixelVals <- (withForeignPtr values) (peekArray numElem)
+   let pixelVals' = map (fromIntegral . truncate . (*255)) pixelVals
+   ptr <-( mallocArray (numElem) ::IO (Ptr Word8))
+   pokeArray ptr pixelVals'
+   return CImage (? ? ? pixelVals' ? ? ? ?)
   
 hRetBuff :: Context -> IO CImage
 hRetBuff c =
@@ -299,7 +300,6 @@ destroyAVI c = do
   if e == 0 then return ()
     else print $ "Error for Destroy AVI is: " ++ (show e)
          
-         
 -- continue this, only use opengl now
 fromAVI = do 
   makeWindow "testing"
@@ -311,3 +311,4 @@ fromAVI = do
     return ()
   waitKey 0
   destroyWindow "testing"
+
